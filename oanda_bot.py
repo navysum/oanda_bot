@@ -41,8 +41,7 @@ def calculate_indicators(df):
     df.ta.sma(length=50, append=True, col_names=('SMA_50',))
     df.ta.rsi(length=14, append=True, col_names=('RSI_14',))
     df.ta.atr(length=14, append=True, col_names=('ATR_14',))
-    df['engulfing'] = ta.cdl_engulfing(df['open'], df['high'], df['low'], df['close'])
-    return df
+    df['engulfing'] = ta.cdl_engulf(df['open'], df['high'], df['low'], df['close'])    return df
 
 # --- TRADE MANAGEMENT ---
 def check_for_open_position():
