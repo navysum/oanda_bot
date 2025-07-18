@@ -2,24 +2,20 @@ import os
 import pandas as pd
 import pandas_ta as ta
 from oandapyV20 import API
-from oandapyV20.endpoints.pricing import PricingStream
-from oandapyV20.endpoints.accounts import AccountDetails
+from oandapyV20.endpoints.instruments import InstrumentsCandles
 from oandapyV20.endpoints.orders import OrderCreate
-from oandapyV20.endpoints.positions import PositionDetails, PositionClose
+from oandapyV20.endpoints.positions import PositionDetails
 from oandapyV20.exceptions import V20Error
 import time
 
 # --- CONFIGURATION ---
-# Secrets are loaded securely from GitHub Actions secrets
 OANDA_ACCESS_TOKEN = os.environ.get('OANDA_ACCESS_TOKEN')
 OANDA_ACCOUNT_ID = os.environ.get('OANDA_ACCOUNT_ID')
-# Use 'practice' for a demo account or 'live' for a real account
-OANDA_ENVIRONMENT = "live" 
+OANDA_ENVIRONMENT = "practice"
 
-# Strategy Settings
 INSTRUMENT = "EUR_USD"
-TIMEFRAME = "M5"  # 5-minute candles
-TRADE_SIZE = 600 # Number of units to trade
+TIMEFRAME = "M5"
+TRADE_SIZE = 600
 
 # --- OANDA API INITIALIZATION ---
 api = API(access_token=OANDA_ACCESS_TOKEN, environment=OANDA_ENVIRONMENT)
@@ -28,12 +24,12 @@ api = API(access_token=OANDA_ACCESS_TOKEN, environment=OANDA_ENVIRONMENT)
 def get_latest_data(count=100):
     """Fetches the latest candle data from OANDA."""
     params = {"count": count, "granularity": TIMEFRAME}
-    r = oandapyV20.endpoints.instruments.InstrumentsCandles(instrument=INSTRUMENT, params=params)
+    r = InstrumentsCandles(instrument=INSTRUMENT, params=params)
     api.request(r)
     
     data = []
     for candle in r.response['candles']:
-        data.append([candle['time'], candle['mid']['o'], candle['mid']['h'], candle['mid']['l'], candle['mid']['c'], candle['volume']])
+        data.append([candle['time'], float(candle['mid']['o']), float(candle['mid']['h']), float(candle['mid']['l']), float(candle['mid']['c']), candle['volume']])
     
     df = pd.DataFrame(data, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
     df['time'] = pd.to_datetime(df['time'])
@@ -41,11 +37,10 @@ def get_latest_data(count=100):
 
 def calculate_indicators(df):
     """Calculates all necessary indicators and adds them to the DataFrame."""
-    df.ta.sma(length=20, append=True)
-    df.ta.sma(length=50, append=True)
-    df.ta.rsi(length=14, append=True)
-    df.ta.atr(length=14, append=True)
-    # Candlestick Pattern Detection (simplified)
+    df.ta.sma(length=20, append=True, col_names=('SMA_20',))
+    df.ta.sma(length=50, append=True, col_names=('SMA_50',))
+    df.ta.rsi(length=14, append=True, col_names=('RSI_14',))
+    df.ta.atr(length=14, append=True, col_names=('ATR_14',))
     df['engulfing'] = ta.cdl_engulfing(df['open'], df['high'], df['low'], df['close'])
     return df
 
@@ -58,52 +53,52 @@ def check_for_open_position():
         if int(r.response['position']['long']['units']) != 0 or int(r.response['position']['short']['units']) != 0:
             return True
     except V20Error as e:
-        # No position exists
-        if e.code == 404:
+        if "404" in str(e): # No position exists for the instrument
             return False
     return False
 
 def execute_trade(side):
     """Executes a trade with Stop Loss and Take Profit."""
-    df = get_latest_data(count=2)
-    atr = ta.atr(df['high'], df['low'], df['close'], length=14).iloc[-1]
+    df = get_latest_data(count=15)
+    atr = df.ta.atr(length=14).iloc[-1]
     
-    stop_loss_pips = (atr * 1.5) / 0.0001 # Convert ATR to pips for EUR_USD
-    take_profit_pips = stop_loss_pips * 2
-
+    stop_loss_distance = atr * 1.5
+    take_profit_distance = stop_loss_distance * 2
     current_price = df['close'].iloc[-1]
 
     if side == 'BUY':
-        sl_price = current_price - (stop_loss_pips * 0.0001)
-        tp_price = current_price + (take_profit_pips * 0.0001)
+        sl_price = current_price - stop_loss_distance
+        tp_price = current_price + take_profit_distance
         units = TRADE_SIZE
     else: # SELL
-        sl_price = current_price + (stop_loss_pips * 0.0001)
-        tp_price = current_price - (take_profit_pips * 0.0001)
+        sl_price = current_price + stop_loss_distance
+        tp_price = current_price - take_profit_distance
         units = -TRADE_SIZE
 
+    # CORRECTED ORDER PAYLOAD - This is more robust and correct for market orders.
     order_data = {
         "order": {
             "units": str(units),
             "instrument": INSTRUMENT,
-            "marketIfTouchedOrderType": "MARKET",
-            "timeInForce": "FOK",
+            "type": "MARKET",
+            "timeInForce": "FOK", # Fill Or Kill
             "positionFill": "DEFAULT",
-            "takeProfitOnFill": {
-                "price": f"{tp_price:.5f}"
-            },
-            "stopLossOnFill": {
-                "price": f"{sl_price:.5f}"
-            }
+            "takeProfitOnFill": {"price": f"{tp_price:.5f}"},
+            "stopLossOnFill": {"price": f"{sl_price:.5f}"}
         }
     }
     r = OrderCreate(accountID=OANDA_ACCOUNT_ID, data=order_data)
-    api.request(r)
-    print(f"--- Trade Placed: {side} {INSTRUMENT} ---")
+    try:
+        api.request(r)
+        print(f"--- Trade Placed: {side} {INSTRUMENT} ---")
+        print(f"Response: {r.response}")
+    except V20Error as e:
+        print(f"!!! Error placing trade: {e} !!!")
+        print(f"Response details: {e.msg}")
 
 # --- MAIN TRADING LOGIC ---
 def run_bot():
-    print(f"Running bot check at {time.ctime()}...")
+    print(f"[{time.ctime()}] Running bot check...")
     
     if check_for_open_position():
         print("Position already open. Skipping check.")
@@ -112,12 +107,10 @@ def run_bot():
     df = get_latest_data()
     df = calculate_indicators(df)
     
-    # Get the latest completed candle's data
     last = df.iloc[-2]
 
-    # --- CHECKING TRADE CONDITIONS ---
-    is_bull_engulfing = last['CDL_ENGULFING'] > 0
-    is_bear_engulfing = last['CDL_ENGULFING'] < 0
+    is_bull_engulfing = last['engulfing'] > 0
+    is_bear_engulfing = last['engulfing'] < 0
     
     buy_signal = last['SMA_20'] > last['SMA_50'] and last['RSI_14'] > 50 and is_bull_engulfing
     sell_signal = last['SMA_20'] < last['SMA_50'] and last['RSI_14'] < 50 and is_bear_engulfing
