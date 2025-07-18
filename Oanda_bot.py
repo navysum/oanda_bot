@@ -10,8 +10,9 @@ from oandapyV20.exceptions import V20Error
 import time
 
 # --- CONFIGURATION ---
-OANDA_ACCESS_TOKEN = "bb44e33b0520c7d68d7e8feb713abebf-f2dcfa5e713109fb29dbed4065f4df17"
-OANDA_ACCOUNT_ID = "001-004-9227373-001"
+# Secrets are loaded securely from GitHub Actions secrets
+OANDA_ACCESS_TOKEN = os.environ.get('OANDA_ACCESS_TOKEN')
+OANDA_ACCOUNT_ID = os.environ.get('OANDA_ACCOUNT_ID')
 # Use 'practice' for a demo account or 'live' for a real account
 OANDA_ENVIRONMENT = "live" 
 
