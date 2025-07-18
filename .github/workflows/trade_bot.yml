@@ -1,3 +1,11 @@
+name: OANDA Trading Bot
+
+on:
+  schedule:
+    # Runs every 15 minutes. This is a good balance for free tier usage.
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Allows you to run it manually from the Actions tab
+
 jobs:
   trade:
     runs-on: ubuntu-latest
@@ -13,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # THE FIX IS HERE: Pinned numpy to a compatible version
+          # Installs specific, compatible versions of libraries to prevent errors
           pip install "numpy==1.23.5" setuptools pandas pandas_ta oandapyV20
 
       - name: Run Trading Bot
