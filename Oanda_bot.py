@@ -19,7 +19,7 @@ OANDA_ENVIRONMENT = "live"
 # Strategy Settings
 INSTRUMENT = "EUR_USD"
 TIMEFRAME = "M5"  # 5-minute candles
-TRADE_SIZE = 1000 # Number of units to trade
+TRADE_SIZE = 600 # Number of units to trade
 
 # --- OANDA API INITIALIZATION ---
 api = API(access_token=OANDA_ACCESS_TOKEN, environment=OANDA_ENVIRONMENT)
