@@ -35,14 +35,14 @@ def get_latest_data(count=100):
     df['time'] = pd.to_datetime(df['time'])
     return df
 
-# CORRECTED CODE
 def calculate_indicators(df):
     """Calculates all necessary indicators and adds them to the DataFrame."""
     df.ta.sma(length=20, append=True, col_names=('SMA_20',))
     df.ta.sma(length=50, append=True, col_names=('SMA_50',))
     df.ta.rsi(length=14, append=True, col_names=('RSI_14',))
     df.ta.atr(length=14, append=True, col_names=('ATR_14',))
-    df['engulfing'] = ta.cdl_engulf(df['open'], df['high'], df['low'], df['close'])
+    # Corrected function name
+    df['engulfing'] = ta.cdl_engulfing(df['open'], df['high'], df['low'], df['close'])
     return df
 
 # --- TRADE MANAGEMENT ---
@@ -76,7 +76,6 @@ def execute_trade(side):
         tp_price = current_price - take_profit_distance
         units = -TRADE_SIZE
 
-    # CORRECTED ORDER PAYLOAD - This is more robust and correct for market orders.
     order_data = {
         "order": {
             "units": str(units),
@@ -101,6 +100,10 @@ def execute_trade(side):
 def run_bot():
     print(f"[{time.ctime()}] Running bot check...")
     
+    if OANDA_ACCESS_TOKEN is None or OANDA_ACCOUNT_ID is None:
+        print("!!! ERROR: OANDA credentials are not set in GitHub Secrets. Exiting. !!!")
+        return
+
     if check_for_open_position():
         print("Position already open. Skipping check.")
         return
