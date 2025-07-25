@@ -35,6 +35,36 @@ def get_latest_data(count=100):
     df['time'] = pd.to_datetime(df['time'])
     return df
 
+def detect_engulfing(df):
+    """
+    Manually detects Bullish and Bearish Engulfing patterns.
+    Returns 100 for Bullish, -100 for Bearish, 0 otherwise.
+    """
+    prev_row = df.shift(1)
+    
+    # Bullish Engulfing Conditions
+    bullish_mask = (
+        (df['close'] > df['open']) &          # Current candle is bullish
+        (prev_row['close'] < prev_row['open']) & # Previous candle is bearish
+        (df['close'] > prev_row['open']) &     # Current close is higher than previous open
+        (df['open'] < prev_row['close'])       # Current open is lower than previous close
+    )
+    
+    # Bearish Engulfing Conditions
+    bearish_mask = (
+        (df['close'] < df['open']) &          # Current candle is bearish
+        (prev_row['close'] > prev_row['open']) & # Previous candle is bullish
+        (df['open'] > prev_row['close']) &     # Current open is higher than previous close
+        (df['close'] < prev_row['open'])       # Current close is lower than previous open
+    )
+    
+    # Assign scores
+    df['engulfing'] = 0
+    df.loc[bullish_mask, 'engulfing'] = 100
+    df.loc[bearish_mask, 'engulfing'] = -100
+    
+    return df
+
 def calculate_indicators(df):
     """Calculates all necessary indicators and adds them to the DataFrame."""
     df.ta.sma(length=20, append=True, col_names=('SMA_20',))
@@ -42,8 +72,8 @@ def calculate_indicators(df):
     df.ta.rsi(length=14, append=True, col_names=('RSI_14',))
     df.ta.atr(length=14, append=True, col_names=('ATR_14',))
     
-    # DEFINITIVE FIX: The correct function name is cdl_engulf
-    df['engulfing'] = ta.cdl_engulf(df['open'], df['high'], df['low'], df['close'])
+    # Use our custom, reliable engulfing detection function
+    df = detect_engulfing(df)
         
     return df
 
@@ -115,7 +145,6 @@ def run_bot():
     
     last = df.iloc[-2]
 
-    # Use .get() for safety in case the column doesn't exist
     is_bull_engulfing = last.get('engulfing', 0) > 0
     is_bear_engulfing = last.get('engulfing', 0) < 0
     
