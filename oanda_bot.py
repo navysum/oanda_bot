@@ -11,7 +11,7 @@ import time
 # --- CONFIGURATION ---
 OANDA_ACCESS_TOKEN = os.environ.get('OANDA_ACCESS_TOKEN')
 OANDA_ACCOUNT_ID = os.environ.get('OANDA_ACCOUNT_ID')
-OANDA_ENVIRONMENT = "live"
+OANDA_ENVIRONMENT = "practice"
 
 INSTRUMENT = "EUR_USD"
 TIMEFRAME = "M5"
@@ -41,8 +41,14 @@ def calculate_indicators(df):
     df.ta.sma(length=50, append=True, col_names=('SMA_50',))
     df.ta.rsi(length=14, append=True, col_names=('RSI_14',))
     df.ta.atr(length=14, append=True, col_names=('ATR_14',))
-    # Corrected function name
-    df['engulfing'] = ta.cdl_engulf(df['open'], df['high'], df['low'], df['close'])
+    
+    # DEFINITIVE FIX: Use the general 'cdl' function which is more stable
+    engulfing_pattern = df.ta.cdl("ENGULFING")
+    if 'CDL_ENGULFING' in engulfing_pattern:
+        df['engulfing'] = engulfing_pattern['CDL_ENGULFING']
+    else:
+        df['engulfing'] = 0 # Default to no pattern if not found
+        
     return df
 
 # --- TRADE MANAGEMENT ---
@@ -113,8 +119,13 @@ def run_bot():
     
     last = df.iloc[-2]
 
-    is_bull_engulfing = last['engulfing'] > 0
-    is_bear_engulfing = last['engulfing'] < 0
+    # Check if 'engulfing' column exists before using it
+    if 'engulfing' in last:
+        is_bull_engulfing = last['engulfing'] > 0
+        is_bear_engulfing = last['engulfing'] < 0
+    else:
+        is_bull_engulfing = False
+        is_bear_engulfing = False
     
     buy_signal = last['SMA_20'] > last['SMA_50'] and last['RSI_14'] > 50 and is_bull_engulfing
     sell_signal = last['SMA_20'] < last['SMA_50'] and last['RSI_14'] < 50 and is_bear_engulfing
