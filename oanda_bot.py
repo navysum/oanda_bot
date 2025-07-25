@@ -42,12 +42,8 @@ def calculate_indicators(df):
     df.ta.rsi(length=14, append=True, col_names=('RSI_14',))
     df.ta.atr(length=14, append=True, col_names=('ATR_14',))
     
-    # DEFINITIVE FIX: Use the general 'cdl' function which is more stable
-    engulfing_pattern = df.ta.cdl("ENGULFING")
-    if 'CDL_ENGULFING' in engulfing_pattern:
-        df['engulfing'] = engulfing_pattern['CDL_ENGULFING']
-    else:
-        df['engulfing'] = 0 # Default to no pattern if not found
+    # DEFINITIVE FIX: Use the direct, correct function name
+    df['engulfing'] = ta.cdl_engulfing(df['open'], df['high'], df['low'], df['close'])
         
     return df
 
@@ -119,13 +115,8 @@ def run_bot():
     
     last = df.iloc[-2]
 
-    # Check if 'engulfing' column exists before using it
-    if 'engulfing' in last:
-        is_bull_engulfing = last['engulfing'] > 0
-        is_bear_engulfing = last['engulfing'] < 0
-    else:
-        is_bull_engulfing = False
-        is_bear_engulfing = False
+    is_bull_engulfing = last['engulfing'] > 0
+    is_bear_engulfing = last['engulfing'] < 0
     
     buy_signal = last['SMA_20'] > last['SMA_50'] and last['RSI_14'] > 50 and is_bull_engulfing
     sell_signal = last['SMA_20'] < last['SMA_50'] and last['RSI_14'] < 50 and is_bear_engulfing
