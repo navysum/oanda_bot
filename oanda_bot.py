@@ -11,7 +11,7 @@ import time
 # --- CONFIGURATION ---
 OANDA_ACCESS_TOKEN = os.environ.get('OANDA_ACCESS_TOKEN')
 OANDA_ACCOUNT_ID = os.environ.get('OANDA_ACCOUNT_ID')
-OANDA_ENVIRONMENT = "live"
+OANDA_ENVIRONMENT = "live" # Set to "live" for a real account
 
 INSTRUMENT = "EUR_USD"
 TIMEFRAME = "M5"
@@ -42,8 +42,8 @@ def calculate_indicators(df):
     df.ta.rsi(length=14, append=True, col_names=('RSI_14',))
     df.ta.atr(length=14, append=True, col_names=('ATR_14',))
     
-    # DEFINITIVE FIX: Use the direct, correct function name
-    df['engulfing'] = ta.cdl_engulfing(df['open'], df['high'], df['low'], df['close'])
+    # DEFINITIVE FIX: The correct function name is cdl_engulf
+    df['engulfing'] = ta.cdl_engulf(df['open'], df['high'], df['low'], df['close'])
         
     return df
 
@@ -115,11 +115,12 @@ def run_bot():
     
     last = df.iloc[-2]
 
-    is_bull_engulfing = last['engulfing'] > 0
-    is_bear_engulfing = last['engulfing'] < 0
+    # Use .get() for safety in case the column doesn't exist
+    is_bull_engulfing = last.get('engulfing', 0) > 0
+    is_bear_engulfing = last.get('engulfing', 0) < 0
     
-    buy_signal = last['SMA_20'] > last['SMA_50'] and last['RSI_14'] > 50 and is_bull_engulfing
-    sell_signal = last['SMA_20'] < last['SMA_50'] and last['RSI_14'] < 50 and is_bear_engulfing
+    buy_signal = last.get('SMA_20', 0) > last.get('SMA_50', 0) and last.get('RSI_14', 0) > 50 and is_bull_engulfing
+    sell_signal = last.get('SMA_20', 0) < last.get('SMA_50', 0) and last.get('RSI_14', 0) < 50 and is_bear_engulfing
     
     if buy_signal:
         execute_trade('BUY')
