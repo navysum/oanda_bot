@@ -42,7 +42,7 @@ def calculate_indicators(df):
     df.ta.rsi(length=14, append=True, col_names=('RSI_14',))
     df.ta.atr(length=14, append=True, col_names=('ATR_14',))
     # Corrected function name
-    df['engulfing'] = ta.cdl_engulfing(df['open'], df['high'], df['low'], df['close'])
+    df['engulfing'] = ta.cdl_engulf(df['open'], df['high'], df['low'], df['close'])
     return df
 
 # --- TRADE MANAGEMENT ---
