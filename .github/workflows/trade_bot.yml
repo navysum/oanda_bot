@@ -21,9 +21,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Installs specific, compatible versions of all required libraries
-          pip install "numpy==1.23.5" setuptools pandas pandas_ta oandapyV20 requests
-
+          # Installs specific, stable versions of all required libraries
+          pip install "numpy==1.23.5" setuptools "pandas==1.5.3" "pandas-ta==0.3.14b" oandapyV20 requests
       - name: Run Trading Bot
         env:
           OANDA_ACCESS_TOKEN: ${{ secrets.OANDA_ACCESS_TOKEN }}
